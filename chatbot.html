@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus OS</title>
+
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <style>
+        :root {
+            --bg: #0d0d0d;
+            --panel: #1a1a1a;
+            --user-bubble: #2b5ff2;
+            --nexus-bubble: #1e1e1e;
+            --text: #ffffff;
+            --sub-text: #a0a0a0;
+            --sidebar-w: 300px;
+            --font-size: 15px;
+        }
+
+        body[data-theme="light"] {
+            --bg: #f5f5f7; --panel: #ffffff; --user-bubble: #007aff; --nexus-bubble: #e9e9eb; --text: #000000;
+        }
+
+        body {
+            background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; display: flex; height: 100vh; overflow: hidden;
+        }
+
+        #sidebar {
+            width: var(--sidebar-w); background: var(--panel); z-index: 1000;
+            position: absolute; height: 100%; left: -320px;
+            transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 30px; box-sizing: border-box;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+        }
+        #sidebar.open { left: 0; }
+
+        #main-content { flex: 1; display: flex; flex-direction: column; height: 100%; position: relative; }
+
+        #header {
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .logo { font-weight: 800; letter-spacing: 2px; font-size: 18px; }
+        .menu-icon { cursor: pointer; font-size: 20px; }
+
+        .trash-btn {
+            background: none; border: none; color: #ff4b4b; cursor: pointer;
+            font-size: 20px; opacity: 0.7; transition: 0.3s;
+        }
+        .trash-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 15% 100px 15%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 14px 20px;
+            border-radius: 18px;
+            font-size: var(--font-size);
+            line-height: 1.5;
+            animation: fadeIn 0.2s ease;
+        }
+        .user { align-self: flex-end; background: var(--user-bubble); color: white; border-bottom-right-radius: 4px; }
+        .nexus { align-self: flex-start; background: var(--nexus-bubble); color: var(--text); border-bottom-left-radius: 4px; }
+
+        #input-area {
+            position: absolute; bottom: 30px; left: 50%;
+            transform: translateX(-50%); width: 60%;
+            max-width: 700px; z-index: 10;
+        }
+        .pill-input {
+            background: #252525;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            padding: 8px 10px 8px 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        input[type="text"] {
+            flex: 1; background: transparent; border: none; color: white;
+            outline: none; font-size: 15px; padding: 10px 0;
+        }
+
+        .mic-box {
+            width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.3s; color: #fff; margin-right: 5px;
+        }
+        .mic-box.active {
+            background: #ff3b3b; border-radius: 8px; width: 40px; height: 40px;
+        }
+
+        .send-btn {
+            background: #2b5ff2; border: none; color: white;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+
+        .config-item { margin-bottom: 20px; }
+        .config-item label { font-size: 11px; font-weight: bold; color: var(--sub-text); display: block; margin-bottom: 8px; text-transform: uppercase; }
+        .field { width: 100%; padding: 10px; border-radius: 8px; background: #333; border: 1px solid #444; color: #fff; outline: none; }
+
+        /* Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 45px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--user-bubble); }
+        input:checked + .slider:before { transform: translateX(23px); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body data-theme="dark">
+
+<div id="sidebar">
+    <h3 style="margin-top:0; letter-spacing: 1px;">AJUSTES</h3>
+    <div class="config-item">
+        <label>Seu Nome</label>
+        <input type="text" id="cfg-name" class="field" placeholder="Visitante">
+    </div>
+    <div class="config-item">
+        <label>Tema</label>
+        <select class="field" onchange="document.body.setAttribute('data-theme', this.value)">
+            <option value="dark">Preto</option>
+            <option value="light">Branco</option>
+        </select>
+    </div>
+    <div class="config-item">
+        <label>Tamanho da Letra</label>
+        <select class="field" onchange="document.documentElement.style.setProperty('--font-size', this.value)">
+            <option value="13px">Pequeno</option>
+            <option value="15px" selected>Normal</option>
+            <option value="18px">Grande</option>
+        </select>
+    </div>
+    <div class="config-item" style="display:flex; align-items:center; justify-content: space-between;">
+        <label style="margin-bottom:0">Habilitar Voz</label>
+        <label class="switch">
+            <input type="checkbox" id="cfg-voice" checked>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <button onclick="toggleSidebar()" style="width:100%; padding:12px; margin-top:20px; border-radius:8px; border:none; background:#444; color:white; cursor:pointer; font-weight:bold">SALVAR</button>
+</div>
+
+<div id="main-content">
+    <header id="header">
+        <div class="header-left">
+            <span class="menu-icon" onclick="toggleSidebar()">☰</span>
+            <span class="logo">NEXUS</span>
+        </div>
+        <button class="trash-btn" onclick="clearChat()">🗑️</button>
+    </header>
+
+    <div id="chat-window"></div>
+
+    <div id="input-area">
+        <div class="pill-input">
+            <input type="text" id="user-input" placeholder="Pergunte ao Nexus..." onkeydown="handleKey(event)">
+            <div class="mic-box" id="mic-btn" onclick="toggleSpeech()">🎙️</div>
+            <button class="send-btn" id="send-btn" py-click="processar_mensagem">➤</button>
+        </div>
+    </div>
+</div>
+
+<py-config>
+    packages = ["requests", "pyodide-http"]
+</py-config>
+
+<script type="py">
+import pyodide_http
+import requests
+import json
+from pyscript import document, window
+
+pyodide_http.patch_all()
+
+API_KEY = "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"
+
+def processar_mensagem(event):
+    input_el = document.querySelector("#user-input")
+    msg = input_el.value
+    if not msg.strip(): return
+
+    name = document.querySelector("#cfg-name").value or "Usuário"
+    exibir_msg(msg, "user")
+    input_el.value = ""
+
+    system_prompt = (
+        f"Você é a Nexus OS. Responda de forma curta e natural. "
+        f"SÓ mencione que foi criada por Paulo Andrade da Chillbolt Studios SE perguntarem explicitamente 'quem te criou?' ou 'quem é você?'. "
+        f"O usuário se chama {name}."
+    )
+
+    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": msg}],
+    }
+
+    try:
+        response = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, data=json.dumps(payload))
+        resp_text = response.json()["choices"][0]["message"]["content"]
+        window.typeWriter(resp_text)
+    except:
+        window.typeWriter("Erro na conexão.")
+
+def exibir_msg(text, type):
+    win = document.querySelector("#chat-window")
+    div = document.createElement("div")
+    div.className = f"bubble {type}"
+    div.innerHTML = f"<div>{text}</div>"
+    win.appendChild(div)
+    win.scrollTop = win.scrollHeight
+</script>
+
+<script>
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+    function handleKey(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            document.getElementById('send-btn').click();
+        }
+    }
+
+    function clearChat() {
+        if(confirm("Deseja limpar todo o histórico?")) {
+            document.getElementById('chat-window').innerHTML = '';
+            window.speechSynthesis.cancel();
+        }
+    }
+
+    function speak(text) {
+        const isVoiceEnabled = document.getElementById('cfg-voice').checked;
+        if (!isVoiceEnabled) return;
+
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'pt-BR';
+        msg.rate = 1.1;
+        window.speechSynthesis.speak(msg);
+    }
+
+    function typeWriter(text) {
+        const win = document.getElementById('chat-window');
+        const div = document.createElement('div');
+        div.className = 'bubble nexus';
+        win.appendChild(div);
+
+        let i = 0;
+        function typing() {
+            if (i < text.length) {
+                div.innerHTML += text.charAt(i) === '\n' ? '<br>' : text.charAt(i);
+                i++;
+                win.scrollTop = win.scrollHeight;
+                setTimeout(typing, 10);
+            } else {
+                speak(text);
+            }
+        }
+        typing();
+    }
+
+    let recognition;
+    let isListening = false;
+    function toggleSpeech() {
+        const btn = document.getElementById('mic-btn');
+        if (!isListening) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'pt-BR';
+            recognition.onstart = () => { isListening = true; btn.classList.add('active'); };
+            recognition.onresult = (e) => { document.getElementById('user-input').value = e.results[0][0].transcript; };
+            recognition.onend = () => { isListening = false; btn.classList.remove('active'); };
+            recognition.start();
+        } else {
+            recognition.stop();
+        }
+    }
+</script>
+
+</body>
+</html>
